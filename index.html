@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>宗族之書：家族經營遊戲</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<button onclick="window.location='map.html'" class="primary-btn">地圖系統</button>
+  <div class="app">
+    <header class="top-bar">
+      <div class="title-block">
+        <h1>宗族之書：家族經營遊戲</h1>
+        <p class="subtitle">你是家主，我是輔佐官。由你決定家族與天下的命運。</p>
+        <p class="subtitle small">
+          世界年份：<span id="worldYearDisplay"></span>
+        </p>
+      </div>
+      <div class="top-actions">
+        <button id="exportBtn" class="btn">匯出存檔</button>
+        <button id="importBtn" class="btn">讀取存檔</button>
+        <input type="file" id="importFile" accept="application/json" style="display:none;" />
+        <button id="resetBtn" class="btn btn-danger">重置遊戲資料</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="left-col">
+        <div class="card">
+          <h2 class="card-title">建立家族</h2>
+          <form id="familyForm">
+            <label>家族名稱
+              <input type="text" id="familyName" required />
+            </label>
+            <div class="form-row">
+              <label>家族出身
+                <select id="familyOrigin"></select>
+              </label>
+              <label>所屬區域
+                <select id="familyRegion"></select>
+              </label>
+            </div>
+            <div class="form-row">
+              <label>主要據點／領地
+                <select id="familyTerritory"></select>
+              </label>
+              <label>備註
+                <textarea id="familyNotes"></textarea>
+              </label>
+            </div>
+            <div class="small-row">
+              <input type="text" id="newOrigin" placeholder="新增出身" />
+              <button type="button" id="addOriginBtn" class="btn btn-small">新增出身</button>
+            </div>
+            <div class="small-row">
+              <input type="text" id="newTerritory" placeholder="新增據點（需先選區域）" />
+              <button type="button" id="addTerritoryBtn" class="btn btn-small">新增據點</button>
+            </div>
+            <div class="card-footer">
+              <button type="submit" class="btn btn-primary">加入族譜</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">快速建立家族</h2>
+          <form id="quickFamilyForm">
+            <label>家族姓氏
+              <input type="text" id="quickSurname" required />
+            </label>
+            <div class="form-row">
+              <label>成員人數
+                <input type="number" id="quickCount" min="1" max="200" required />
+              </label>
+              <label>年齡區間（最小～最大）
+                <div class="inline-input">
+                  <input type="number" id="quickAgeMin" min="0" max="120" placeholder="最小" />
+                  <span>～</span>
+                  <input type="number" id="quickAgeMax" min="0" max="120" placeholder="最大" />
+                </div>
+              </label>
+            </div>
+            <div class="form-row">
+              <label>出身（選填）
+                <select id="quickOrigin"></select>
+              </label>
+              <label>所屬區域（選填，但指定據點時必填）
+                <select id="quickRegion"></select>
+              </label>
+            </div>
+            <label>主要據點／領地（選填）
+              <select id="quickTerritory"></select>
+            </label>
+            <p class="hint">快速建立家族會自動生成成員、合理的父母子女關係與壽命，但不會自動排定婚配，方便家主之後手動安排聯姻。</p>
+            <div class="card-footer">
+              <button type="submit" class="btn btn-primary">一鍵生成</button>
+            </div>
+        <div class="card">
+          <h2 class="card-title">出身／區域／據點一覽</h2>
+          <div id="optionOverview"></div>
+        </div>
+
+          </form>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">建立人物</h2>
+          <form id="personForm">
+            <label>姓名
+              <input type="text" id="personName" required />
+            </label>
+            <div class="form-row">
+              <label>出生年份（星曆）
+                <input type="number" id="personBirth" min="1" max="9999" />
+              </label>
+              <label>性別
+                <select id="personGender">
+                  <option value="">未指定</option>
+                  <option value="男">男</option>
+                  <option value="女">女</option>
+                  <option value="其他">其他</option>
+                </select>
+              </label>
+            </div>
+            <div class="form-row">
+              <label>身分
+                <select id="personRole">
+                  <option value="">未指定</option>
+                  <option value="家主">家主</option>
+                  <option value="嫡長子女">嫡長子女</option>
+                  <option value="嫡支子女">嫡支子女</option>
+                  <option value="庶出子女">庶出子女</option>
+                  <option value="旁系宗親">旁系宗親</option>
+                  <option value="外族聯姻">外族聯姻</option>
+                </select>
+              </label>
+              <label>隸屬家族
+                <select id="personFamily"></select>
+              </label>
+            </div>
+            <div class="form-row">
+              <label>職業／職責
+                <select id="personOcc"></select>
+              </label>
+              <label>住所／駐地
+                <select id="personRes"></select>
+              </label>
+            </div>
+            <label>備註
+              <textarea id="personNotes"></textarea>
+            </label>
+            <input type="hidden" id="personParentId" />
+            <div class="card-footer">
+              <button type="button" id="cancelChildModeBtn" class="btn btn-small" style="display:none;">取消以此人為父母建立子女</button>
+              <button type="submit" class="btn btn-primary">加入族人</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">家族列表</h2>
+          <div id="familyList" class="list"></div>
+        </div>
+      </section>
+
+      <section class="right-col">
+        <div class="card">
+          <h2 class="card-title">時間軸</h2>
+          <p>當前世界年份：<span id="timelineYear"></span></p>
+          <p class="hint">推進年份時，若有人到達預期去世年份，將標記為已逝並由輔佐官回報。</p>
+          <div class="button-row">
+            <button id="yearMinusBtn" class="btn btn-small">-1 年</button>
+            <button id="yearPlusBtn" class="btn btn-small">+1 年</button>
+            <button id="yearPlus10Btn" class="btn btn-small">+10 年</button>
+            <button id="yearResetBtn" class="btn btn-small">重設為星曆 387 年</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">輔佐官</h2>
+          <div id="advisorLog" class="log">
+            <p>【輔佐官】家主，先建立一個家族與幾位族人，我便能為你繪製整個宗族的輪廓。</p>
+          </div>
+          <div class="form-row">
+            <input type="text" id="advisorSearchName" placeholder="輸入姓名調取人物" />
+            <button id="advisorSearchBtn" class="btn btn-small">調取人物</button>
+          </div>
+          <div class="form-row">
+            <select id="advisorLocation"></select>
+            <button id="advisorLocationBtn" class="btn btn-small">調取地點資料</button>
+          </div>
+          <div class="form-row">
+            <input type="number" id="ageMin" placeholder="最小年齡" />
+            <input type="number" id="ageMax" placeholder="最大年齡" />
+            <button id="advisorAgeBtn" class="btn btn-small">調取年齡段</button>
+          </div>
+          <textarea id="advisorCommand" rows="3" placeholder="可輸入指令，例如：
+查人 慕容伊
+查地 北境
+查齡 15-30
+年+10、年份 400
+改家族區域 慕容氏家族 中原
+改家族據點 慕容氏家族 江南府城
+改人物家族 某人 林氏家族 / 無
+加父母 子名 父母名
+加子女 父母名 子名
+改人物死亡年份 某人 420
+壽命 慕容伊"></textarea>
+          <div class="button-row">
+            <button id="advisorCommandBtn" class="btn btn-primary btn-small">送出指令</button>
+            <button id="worldSummaryBtn" class="btn btn-small">天下總覽</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">事件系統</h2>
+          <div class="form-row">
+            <label>事件類型
+              <select id="eventType">
+                <option value="random">隨機事件</option>
+                <option value="marriage">聯姻提親</option>
+                <option value="birth">子嗣誕生預兆</option>
+                <option value="conflict">內鬥糾紛</option>
+                <option value="alliance">結盟合作</option>
+                <option value="disaster">災異風波</option>
+                <option value="inheritance">繼承與分家</option>
+              </select>
+            </label>
+            <label>事件區域
+              <select id="eventRegion"></select>
+            </label>
+          </div>
+          <p class="hint">觸發事件後會跳出視窗，家主可決定是否執行與如何處置。</p>
+          <button id="triggerEventBtn" class="btn btn-primary">觸發事件</button>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">世界區域與勢力</h2>
+          <div id="regionOverview"></div>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">家族詳情</h2>
+          <div id="familyDetail" class="detail">
+            <p class="hint">請從左側家族列表中選擇一個家族。</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title">人物詳情</h2>
+          <div id="personDetail" class="detail">
+            <p class="hint">請從家族詳情中的成員列表點選一人。</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- 事件確認視窗 -->
+  <div id="eventModal" class="modal hidden">
+    <div class="modal-content">
+      <h3>事件確認</h3>
+      <div id="eventText" class="modal-body"></div>
+      <label>家主決定
+        <select id="eventDecision"></select>
+      </label>
+      <div class="button-row right">
+        <button id="eventCancel" class="btn btn-small">取消</button>
+        <button id="eventConfirm" class="btn btn-primary btn-small">執行</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/game.js"></script>
+</body>
+</html>

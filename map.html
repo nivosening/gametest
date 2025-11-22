@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>世界地圖系統</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="top-bar">
+      <h1>世界地圖系統</h1>
+      <button onclick="window.location='index.html'" class="back-btn">← 返回家族遊戲</button>
+    </header>
+    <section class="panel">
+      <h2>地名 / 區域列表</h2>
+      <div id="regionList"></div>
+      <button id="addRegionBtn" class="primary-btn">新增地名 / 區域</button>
+    </section>
+    <section id="editorPanel" class="panel" style="display:none;">
+      <h2 id="editorTitle">編輯地區</h2>
+      <label>名稱 <input id="regionName" /></label>
+      <label>描述 <textarea id="regionDesc"></textarea></label>
+      <button id="saveRegionBtn" class="primary-btn">儲存</button>
+      <button id="cancelEditBtn" class="secondary-btn">取消</button>
+    </section>
+  </div>
+  <script type="module" src="js/map.js"></script>
+</body>
+</html>
