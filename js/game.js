@@ -1945,79 +1945,97 @@ function advisorSearchLocation(keyword) {
   const regions = findRegionsByName(k);
   const territories = findTerritoriesByName(k);
 
+  // ====== ① 若搜尋的是「區域」 ======
   if (regions.length) {
     const r = regions[0];
     const families = state.families.filter(f => f.regionId === r.id);
-    const persons = state.persons.filter(p => families.map(f => f.id).includes(p.familyId));
-    
-    let msg = `區域「${r.name}」：${r.desc}。`;
-    msg += `目前有 ${families.length} 個家族在此設立據點或活動，共 ${persons.length} 位族人。`;
-    advisorSay(msg);
-    if (families.length) { 
-      state.selectedFamilyId = families[0].id;
-      state.selectedPersonId = null;
-    } else if (persons.length) { 
-      state.selectedPersonId = persons[0].id;
-      state.selectedFamilyId = persons[0].familyId || null;
-    }
-    renderFamilies();
-    renderFamilyDetail();
-    renderPersonDetail();
-    return;
-  }
 
-  if (territories.length) {
-    const t = territories[0];
-    const families = state.families.filter(f => f.territory === t.name);
-    const persons = state.persons.filter(p => p.residence === t.name);
-
-    if (!families.length && !persons.length) {
-      advisorSay(`在宗族記錄中，尚未見與「${k}」相關的據點或人物。`);
-      return;
+    // 每個家族的人數統計
+    let detail = "";
+    if (families.length) {
+      detail = families
+        .map(f => {
+          const count = state.persons.filter(p => p.familyId === f.id).length;
+          return `「${f.name}」：${count} 人`;
+        })
+        .join("； ");
+    } else {
+      detail = "尚無家族在此區域活動。";
     }
 
-    let msg = `據點「${t.name}」（位於${getRegionName(t.regionId) || "區域未定"}）：`;
-    if (families.length) msg += `有 ${families.length} 個家族在此設立據點；`;
-    if (persons.length) msg += `有 ${persons.length} 名人物活動。`;
-    advisorSay(msg);
+    advisorSay(
+      `區域「${r.name}」：${r.desc}\n` +
+      `共有 ${families.length} 個家族活動。\n` +
+      detail
+    );
 
     if (families.length) {
       state.selectedFamilyId = families[0].id;
       state.selectedPersonId = null;
-    } else if (persons.length) {
-      state.selectedPersonId = persons[0].id;
-      state.selectedFamilyId = persons[0].familyId || null;
+      renderFamilies();
+      renderFamilyDetail();
     }
-    renderFamilies();
-    renderFamilyDetail();
-    renderPersonDetail();
     return;
   }
 
-  const families = state.families.filter(f => (f.territory && f.territory.includes(k)) || (f.name && f.name.includes(k)) );
-  const persons = state.persons.filter(p => (p.residence && p.residence.includes(k)) );
+  // ====== ② 若搜尋的是「據點」 ======
+  if (territories.length) {
+    const t = territories[0];
+    const families = state.families.filter(f => f.territory === t.name);
 
-  if (!families.length && !persons.length) {
-    advisorSay(`在宗族記錄中，尚未見與「${k}」相關的據點或人物。`);
+    // 每家族人數
+    let detail = "";
+    if (families.length) {
+      detail = families
+        .map(f => {
+          const count = state.persons.filter(p => p.familyId === f.id).length;
+          return `「${f.name}」：${count} 人`;
+        })
+        .join("； ");
+    } else {
+      detail = "尚無家族在此據點活動。";
+    }
+
+    advisorSay(
+      `據點「${t.name}」（位於 ${getRegionName(t.regionId) || "區域未定"}）\n` +
+      `共有 ${families.length} 個家族在此據點。\n` +
+      detail
+    );
+
+    if (families.length) {
+      state.selectedFamilyId = families[0].id;
+      state.selectedPersonId = null;
+      renderFamilies();
+      renderFamilyDetail();
+    }
     return;
   }
 
-  let msg = `與「${k}」相關的記錄中，`;
-  if (families.length) msg += `有 ${families.length} 個家族據點；`;
-  if (persons.length) msg += `有 ${persons.length} 名人物活動。`;
-  advisorSay(msg);
+  // ====== ③ 若不是區域也不是據點 → 嘗試搜尋包含名稱的家族或人物 ======
+  const families = state.families.filter(
+    f => f.name.includes(k) || (f.territory && f.territory.includes(k))
+  );
 
   if (families.length) {
+    const detail = families
+      .map(f => {
+        const count = state.persons.filter(p => p.familyId === f.id).length;
+        return `「${f.name}」：${count} 人`;
+      })
+      .join("； ");
+
+    advisorSay(`找到相關家族 ${families.length} 個：${detail}`);
+
     state.selectedFamilyId = families[0].id;
     state.selectedPersonId = null;
-  } else if (persons.length) {
-    state.selectedPersonId = persons[0].id;
-    state.selectedFamilyId = persons[0].familyId || null;
+    renderFamilies();
+    renderFamilyDetail();
+    return;
   }
-  renderFamilies();
-  renderFamilyDetail();
-  renderPersonDetail();
+
+  advisorSay(`在宗族記錄中找不到與「${k}」相關的地點。`);
 }
+
 
 function advisorSearchAge(minAge, maxAge) {
   const a = Number(minAge), b = Number(maxAge);
@@ -2443,3 +2461,37 @@ document.addEventListener("DOMContentLoaded", () => {
     handleAdvisorCommand($("advisorCommand").value);
   });
 });
+
+  // ======== 輔佐官搜尋按鈕功能補綁定 ========
+
+  // 查人按鈕
+  $("advisorSearchBtn").addEventListener("click", () => {
+    const name = $("advisorSearchName").value.trim();
+    if (!name) { advisorSay("請家主輸入姓名。"); return; }
+    advisorSearchName(name);
+  });
+
+  // 查地點按鈕
+  $("advisorLocationBtn").addEventListener("click", () => {
+    const loc = $("advisorLocation").value.trim();
+    if (!loc) { advisorSay("請家主選擇地點。"); return; }
+    advisorSearchLocation(loc);
+  });
+
+  // 查年齡按鈕
+  $("advisorAgeBtn").addEventListener("click", () => {
+    const a = $("ageMin").value;
+    const b = $("ageMax").value;
+    advisorSearchAge(a, b);
+  });
+
+  // 天下總覽按鈕
+  $("worldSummaryBtn").addEventListener("click", () => {
+    advisorWorldSummary();
+  });
+
+  // 指令送出按鈕
+  $("advisorCommandBtn")?.addEventListener("click", () => {
+    handleAdvisorCommand($("advisorCommand").value);
+  });
+
