@@ -1775,11 +1775,12 @@ function exportGame() {
 
 function importGame(file) {
   if (!file) return;
+
   const reader = new FileReader();
   reader.onload = e => {
     try {
       const data = JSON.parse(e.target.result);
-      loadStateFromData(data); // 假設有一個內部函數來處理載入
+      loadStateFromData(data);
       init();
       advisorSay("已成功讀取宗族存檔。");
     } catch (err) {
@@ -1791,9 +1792,37 @@ function importGame(file) {
 }
 
 function loadStateFromData(data) {
-  // 實際應修改 loadState 使其接受數據作為參數，但由於文件結構限制，這裡保留原樣
-  loadState(data); 
+
+  // 直接覆蓋 state
+  state.regions = data.regions || [...DEFAULT_REGIONS];
+  state.families = data.families || [];
+  state.persons = data.persons || [];
+  state.originOptions = data.originOptions || [...DEFAULT_ORIGINS];
+  state.territoryOptions = data.territoryOptions || [...DEFAULT_TERRITORIES];
+  state.occOptions = data.occOptions || [...DEFAULT_OCCS];
+  state.resOptions = data.resOptions || [...DEFAULT_RES];
+  state.roleOptions = data.roleOptions || [...DEFAULT_ROLES];
+
+  state.nextFamilyId = data.nextFamilyId || 1;
+  state.nextPersonId = data.nextPersonId || 1;
+  state.selectedFamilyId = data.selectedFamilyId || null;
+  state.selectedPersonId = data.selectedPersonId || null;
+  state.childModeParentId = null;
+  state.gameYear = data.gameYear || INITIAL_YEAR;
+
+  // 人物關係補修（避免 parentIds, spouseIds 不存在）
+  state.persons.forEach(p => {
+    if (!Array.isArray(p.spouseIds)) p.spouseIds = [];
+    if (!Array.isArray(p.spouseRelations)) p.spouseRelations = [];
+    if (!Array.isArray(p.parentIds)) p.parentIds = [];
+    if (!Array.isArray(p.childIds)) p.childIds = [];
+    if (p.deceased == null) p.deceased = false;
+  });
+
+  normalizeRelations();
+  saveState(); // 儲存到 localStorage
 }
+
 
 
 function resetGame() {
