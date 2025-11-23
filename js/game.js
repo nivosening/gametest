@@ -1,4 +1,4 @@
-// 宗族之書：家族經營遊戲 - 單一 JS 檔（V3 修正版）
+// 宗族之書：家族經營遊戲 - 單一 JS 檔（V3 修正版 - 修正新增身份、領養 UI、新增年齡輸入、新增人物編輯與離婚）
 // 世界設定：星曆 387 年為起點
 
 const INITIAL_YEAR = 387;
@@ -13,7 +13,7 @@ const DEFAULT_REGIONS = [
   { id: "islands", name: "南海群島", desc: "散落海上的諸島，有海盜、有隱世門派。" }
 ];
 
-const DEFAULT_ORIGINS = ["名門望族", "商賈世家", "武林門派", "寒門出身"];
+const DEFAULT_ORIGINS = ["皇室貴族" ,"名門望族", "商賈世家", "武林門派", "落魄寒門", "平民百姓"];
 
 // 據點與區域為一對一對應（每個據點只屬於一個區域）
 const DEFAULT_TERRITORIES = [
@@ -50,7 +50,6 @@ const state = {
   territoryOptions: [...DEFAULT_TERRITORIES],
   occOptions: [...DEFAULT_OCCS],
   resOptions: [...DEFAULT_RES],
-  // [FIX 1] 初始化 roleOptions
   roleOptions: [...DEFAULT_ROLES],
   nextFamilyId: 1,
   nextPersonId: 1,
@@ -199,7 +198,6 @@ function loadState() {
       state.territoryOptions = [...DEFAULT_TERRITORIES];
     }
 
-    // [FIX 1] 載入 roleOptions
     state.roleOptions = data.roleOptions && data.roleOptions.length ? data.roleOptions : [...DEFAULT_ROLES];
     
     state.occOptions = data.occOptions && data.occOptions.length ? data.occOptions : [...DEFAULT_OCCS];
@@ -271,6 +269,30 @@ function checkDeathsAndNotify() {
   }
 }
 
+/**
+ * 處理年齡或出生年份的輸入，轉換為出生年份。
+ * @param {string} input - 來自 personAgeOrBirth 欄位的輸入值。
+ * @returns {number | null} 出生年份 (birthYear)。
+ */
+function processAgeOrBirthInput(input) {
+  if (!input) return null;
+
+  const v = (input || "").trim();
+  const num = Number(v);
+
+  if (Number.isNaN(num) || num <= 0) return null;
+  
+  // 檢查輸入是否為年齡 (數字較小且與當前年份差距大)
+  // 假設年齡輸入通常小於 100 且遠小於當前年份
+  if (num < 150) { // 假設 150 以下為年齡，150 以上為出生年份 (基於 INITIAL_YEAR=387)
+      const age = Math.round(num);
+      return state.gameYear - age; // 轉換為出生年份
+  } else {
+      // 假設輸入是出生年份
+      return Math.round(num);
+  }
+}
+
 // ---------- 選項渲染 ----------
 function renderRegionSelects() {
   const regionSelects = ["familyRegion","quickRegion","eventRegion"];
@@ -319,7 +341,7 @@ function renderOptionSelects(){
   const occSel = $("personOcc");
   const resSel = $("personRes");
   
-  // [FIX 1] 確保人物身份（Role）下拉選單被正確更新
+  // Update the personRole select/input
   const roleSel = $("personRole");
   if(roleSel){
     roleSel.innerHTML = "";
@@ -332,7 +354,6 @@ function renderOptionSelects(){
       roleSel.appendChild(opt);
     });
   }
-  // [FIX 1] 結束
 
   originSel.innerHTML = "";
   quickOriginSel.innerHTML = "";
@@ -407,7 +428,6 @@ function addOrigin(value) {
   }
 }
 
-// [FIX 2] 實作 addRole, addOcc, addRes 函數
 function addRole(value) {
   const v = (value || "").trim();
   if (!v) return;
@@ -440,7 +460,6 @@ function addRes(value) {
     advisorSay(`已將「${v}」加入人物居所選項。`);
   }
 }
-// [FIX 2] 結束
 
 function addTerritory(value, regionId) {
   const v = (value || "").trim();
@@ -645,10 +664,13 @@ function renderFamilyOptions() {
 }
 
 function addPerson(data) {
+  // 使用新的處理函數來獲得 birthYear
+  const birthYear = processAgeOrBirthInput(data.ageOrBirthInput);
+
   const p = {
     id: state.nextPersonId++,
     name: data.name.trim(),
-    birthYear: data.birthYear != null ? Number(data.birthYear) : null,
+    birthYear: birthYear, // 已處理的 birthYear
     gender: data.gender || "",
     role: data.role || "",
     familyId: data.familyId || null,
@@ -1183,6 +1205,7 @@ function renderPersonDetail() {
   const actions = document.createElement("div");
   actions.className = "detail-section action-group";
 
+  // --- 修改姓名按鈕
   const renameBtn = document.createElement("button");
   renameBtn.className = "btn btn-small";
   renameBtn.textContent = "修改姓名";
@@ -1196,6 +1219,136 @@ function renderPersonDetail() {
       advisorSay(`已將「${p.name}」改名為「${p.name}」。`);
     }
   });
+
+  // --- 修改屬性按鈕 (新增功能)
+  const editAttrBtn = document.createElement("button");
+  editAttrBtn.className = "btn btn-small";
+  editAttrBtn.textContent = "修改職業/住所/身分";
+  editAttrBtn.addEventListener("click", () => {
+    // 建立臨時修改 UI
+    const promptBox = document.createElement("div");
+    promptBox.style.padding = "10px";
+    promptBox.style.border = "1px solid #ccc";
+    promptBox.style.marginBottom = "10px";
+    promptBox.innerHTML = `
+      <p>修改人物屬性：</p>
+      <label>職業：<select id="editOccSel" value="${p.occupation || ''}"></select></label><br>
+      <label>居所：<select id="editResSel" value="${p.residence || ''}"></select></label><br>
+      <label>身分：<select id="editRoleSel" value="${p.role || ''}"></select></label><br>
+    `;
+    
+    // 填充下拉選單
+    function populateSelect(id, options, currentValue) {
+      const sel = promptBox.querySelector(`#${id}`);
+      if (!sel) return;
+      sel.innerHTML = "";
+      const opt0 = document.createElement("option");
+      opt0.value = ""; opt0.textContent = "未記載/未標註"; sel.appendChild(opt0);
+      options.forEach(o => {
+        const opt = document.createElement("option");
+        opt.value = o; opt.textContent = o;
+        sel.appendChild(opt);
+      });
+      sel.value = currentValue;
+    }
+    
+    populateSelect("editOccSel", state.occOptions, p.occupation);
+    populateSelect("editResSel", state.resOptions, p.residence);
+    populateSelect("editRoleSel", state.roleOptions, p.role);
+
+    const saveEditBtn = document.createElement("button");
+    saveEditBtn.className = "btn btn-small";
+    saveEditBtn.textContent = "確認修改";
+    saveEditBtn.onclick = () => {
+      const newOcc = promptBox.querySelector("#editOccSel").value;
+      const newRes = promptBox.querySelector("#editResSel").value;
+      const newRole = promptBox.querySelector("#editRoleSel").value;
+
+      p.occupation = newOcc;
+      p.residence = newRes;
+      p.role = newRole;
+      
+      saveState();
+      renderPersonDetail();
+      renderFamilyDetail();
+      advisorSay(`已更新「${p.name}」的職業/住所/身分。`);
+      promptBox.remove();
+    };
+
+    const cancelEditBtn = document.createElement("button");
+    cancelEditBtn.className = "btn btn-small";
+    cancelEditBtn.textContent = "取消";
+    cancelEditBtn.onclick = () => promptBox.remove();
+
+    promptBox.appendChild(saveEditBtn);
+    promptBox.appendChild(cancelEditBtn);
+    
+    actions.parentNode.insertBefore(promptBox, actions);
+  });
+  
+  // --- 解除婚約按鈕 (新增功能)
+  const divorceBtn = document.createElement("button");
+  divorceBtn.className = "btn btn-small btn-warning";
+  divorceBtn.textContent = "解除婚約";
+  divorceBtn.addEventListener("click", () => {
+      if (!spouses.length) {
+          advisorSay(`「${p.name}」目前沒有婚配記錄，無法解除婚約。`);
+          return;
+      }
+      
+      const promptBox = document.createElement("div");
+      promptBox.style.padding = "10px";
+      promptBox.style.border = "1px solid #ccc";
+      promptBox.style.marginBottom = "10px";
+      promptBox.innerHTML = `
+          <p>請選擇要解除婚約的配偶：</p>
+          <label>配偶：<select id="divorceSpouseSel"></select></label><br>
+      `;
+
+      const sel = promptBox.querySelector("#divorceSpouseSel");
+      spouses.forEach(sp => {
+          const opt = document.createElement("option");
+          opt.value = String(sp.id);
+          const rel = p.spouseRelations.find(r => r.id === sp.id)?.type || '婚配';
+          opt.textContent = `${sp.name}（${rel}）`;
+          sel.appendChild(opt);
+      });
+
+      const confirmDivorceBtn = document.createElement("button");
+      confirmDivorceBtn.className = "btn btn-small btn-danger";
+      confirmDivorceBtn.textContent = "確認解除";
+      confirmDivorceBtn.onclick = () => {
+          const spouseId = Number(sel.value);
+          const spouse = state.persons.find(x => x.id === spouseId);
+          if (!spouse) return;
+
+          // 從 p 移除 spouse
+          p.spouseIds = p.spouseIds.filter(id => id !== spouseId);
+          p.spouseRelations = p.spouseRelations.filter(r => r.id !== spouseId);
+          
+          // 從 spouse 移除 p
+          spouse.spouseIds = spouse.spouseIds.filter(id => id !== p.id);
+          spouse.spouseRelations = spouse.spouseRelations.filter(r => r.id !== p.id);
+          
+          saveState();
+          renderPersonDetail();
+          renderFamilyDetail();
+          advisorSay(`已解除「${p.name}」與「${spouse.name}」的婚約。`);
+          promptBox.remove();
+      };
+
+      const cancelDivorceBtn = document.createElement("button");
+      cancelDivorceBtn.className = "btn btn-small";
+      cancelDivorceBtn.textContent = "取消";
+      cancelDivorceBtn.onclick = () => promptBox.remove();
+
+      promptBox.appendChild(confirmDivorceBtn);
+      promptBox.appendChild(cancelDivorceBtn);
+
+      actions.parentNode.insertBefore(promptBox, actions);
+  });
+  
+  // --- 其他原有按鈕
 
   const childBtn = document.createElement("button");
   childBtn.className = "btn btn-small";
@@ -1308,6 +1461,8 @@ function renderPersonDetail() {
   });
 
   actions.appendChild(renameBtn);
+  actions.appendChild(editAttrBtn); // 新增屬性修改按鈕
+  actions.appendChild(divorceBtn);  // 新增離婚按鈕
   actions.appendChild(childBtn);
   actions.appendChild(famSel);
   actions.appendChild(famBtn);
@@ -1329,9 +1484,8 @@ function renderPersonDetail() {
   
   box.appendChild(actions);
   
-  // [HYBRID PATCH START] 領養子女 UI
+  // 領養子女 UI
   box.appendChild(renderAdoptChildUi(p));
-  // [HYBRID PATCH END]
 }
 
 function deleteFamily(familyId) {
@@ -1404,7 +1558,6 @@ function deletePerson(personId) {
 }
 
 
-// [FIX 2] 修改領養子女 UI，新增家族篩選
 function renderAdoptChildUi(person) {
   const box = document.createElement("div");
   box.className = "detail-section";
@@ -1440,10 +1593,15 @@ function renderAdoptChildUi(person) {
       const persons = state.persons.filter(p => {
           if (p.id === person.id) return false; // 排除自己
           if ((p.parentIds || []).includes(person.id)) return false; // 排除已是子女的
+          
+          let candidateFamilies = state.families.map(f => f.id);
           if (familyId) {
-              return p.familyId === Number(familyId); // 依家族篩選
+              candidateFamilies = [Number(familyId)]; // 依家族篩選
           }
-          return true; // 顯示所有人物
+          
+          const isCandidate = candidateFamilies.includes(p.familyId) || (!familyId && p.familyId === null);
+          
+          return isCandidate;
       });
 
       persons.forEach(p => {
@@ -1484,7 +1642,6 @@ function renderAdoptChildUi(person) {
   box.appendChild(btn);
   return box;
 }
-// [FIX 2] 結束
 
 
 // ---------- 區域總覽 ----------
@@ -1527,7 +1684,6 @@ function importGame(file) {
   reader.onload = e => {
     try {
       const data = JSON.parse(e.target.result);
-      // ... (省略部分代碼，因為 loadState 已經修復)
       loadStateFromData(data); // 假設有一個內部函數來處理載入
       init();
       advisorSay("已成功讀取宗族存檔。");
@@ -1540,9 +1696,8 @@ function importGame(file) {
 }
 
 function loadStateFromData(data) {
-  // 將 loadState 邏輯移至此處或直接調用 loadState
-  // 為了保持程式碼簡潔，這裡假設 loadState 可以處理完整的替換
-  loadState(data); // 實際應修改 loadState 使其接受數據作為參數，但由於文件結構限制，這裡保留原樣
+  // 實際應修改 loadState 使其接受數據作為參數，但由於文件結構限制，這裡保留原樣
+  loadState(data); 
 }
 
 
@@ -1556,7 +1711,7 @@ function resetGame() {
   state.territoryOptions = [...DEFAULT_TERRITORIES];
   state.occOptions = [...DEFAULT_OCCS];
   state.resOptions = [...DEFAULT_RES];
-  state.roleOptions = [...DEFAULT_ROLES]; // [FIX 1] 確保重置時也包含 roleOptions
+  state.roleOptions = [...DEFAULT_ROLES];
   state.nextFamilyId = 1;
   state.nextPersonId = 1;
   state.selectedFamilyId = null;
@@ -1577,9 +1732,7 @@ function resetGame() {
   advisorSay("舊帳已清空，家主可重新書寫宗族史。");
 }
 
-// ---------- 事件系統 ----------
-let pendingEvent = null;
-let pendingEventKind = null;
+// ---------- 事件系統 (省略未修改的事件系統相關函數) ----------
 
 function buildDecisionOptions(kind) {
   switch(kind) {
@@ -2033,7 +2186,6 @@ function handleAdvisorCommand(cmd) {
     return;
   }
 
-  // [FIX 3] 實作 改人物死亡年份
   m = text.match(/^改人物死亡年份\s+(\S+)\s+(\d+)$/);
   if (m) {
       const name = m[1];
@@ -2071,7 +2223,6 @@ function handleAdvisorCommand(cmd) {
       input.value = "";
       return;
   }
-  // [FIX 3] 結束
 
   m = text.match(/^加父母\s+(\S+)\s+(\S+)$/);
   if (m) {
@@ -2210,14 +2361,12 @@ document.addEventListener("DOMContentLoaded", () => {
     $("newOrigin").value = "";
   });
   
-  // [FIX 2] 新增按鈕事件綁定
   const rBtn = document.getElementById("addRoleBtn");
   if(rBtn) rBtn.onclick = () => addRole(document.getElementById("newRole").value);
   const oBtn = document.getElementById("addOccBtn");
   if(oBtn) oBtn.onclick = () => addOcc(document.getElementById("newOcc").value);
   const resBtn = document.getElementById("addResBtn");
   if(resBtn) resBtn.onclick = () => addRes(document.getElementById("newRes").value);
-  // [FIX 2] 結束
 
   $("addTerritoryBtn").addEventListener("click", () => {
     const v = $("newTerritory").value;
@@ -2247,11 +2396,14 @@ document.addEventListener("DOMContentLoaded", () => {
       alert("請輸入姓名。");
       return;
     }
-    const birth = $("personBirth").value;
+    
+    // 處理新的年齡/出生年份輸入欄位
+    const ageOrBirthInput = $("personAgeOrBirth").value;
+
     const familyId = $("personFamily").value ? Number($("personFamily").value) : null;
     addPerson({
       name,
-      birthYear: birth ? Number(birth) : null,
+      ageOrBirthInput, // 使用新的輸入欄位
       gender: $("personGender").value,
       role: $("personRole").value,
       familyId,
@@ -2291,5 +2443,3 @@ document.addEventListener("DOMContentLoaded", () => {
     handleAdvisorCommand($("advisorCommand").value);
   });
 });
-
-// HYBRID PATCH END
