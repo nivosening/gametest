@@ -92,27 +92,28 @@
             <label>主要據點／領地（選填）
               <select id="quickTerritory"></select>
             </label>
-            <p class="hint">快速建立家族會自動生成成員、合理的父母子女關係與壽命，但不會自動排定婚配，方便家主之後手動安排聯姻。</p>
+            <p class="hint">快速建立家族會自動生成成員與年齡與壽命，但不會自動安排婚配。</p>
             <div class="card-footer">
               <button type="submit" class="btn btn-primary">一鍵生成</button>
             </div>
-        <div class="card">
-          <h2 class="card-title">出身／區域／據點一覽</h2>
-          <div id="optionOverview"></div>
-<div class="small-row">
-  <input type="text" id="newRole" placeholder="新增身分" />
-  <button type="button" id="addRoleBtn" class="btn btn-small">新增身分</button>
-</div>
-<div class="small-row">
-  <input type="text" id="newOcc" placeholder="新增職業" />
-  <button type="button" id="addOccBtn" class="btn btn-small">新增職業</button>
-</div>
-<div class="small-row">
-  <input type="text" id="newRes" placeholder="新增住所" />
-  <button type="button" id="addResBtn" class="btn btn-small">新增住所</button>
-</div>
 
-        </div>
+            <div class="card">
+              <h2 class="card-title">出身／區域／據點一覽</h2>
+              <div id="optionOverview"></div>
+
+              <div class="small-row">
+                <input type="text" id="newRole" placeholder="新增身分" />
+                <button type="button" id="addRoleBtn" class="btn btn-small">新增身分</button>
+              </div>
+              <div class="small-row">
+                <input type="text" id="newOcc" placeholder="新增職業" />
+                <button type="button" id="addOccBtn" class="btn btn-small">新增職業</button>
+              </div>
+              <div class="small-row">
+                <input type="text" id="newRes" placeholder="新增住所" />
+                <button type="button" id="addResBtn" class="btn btn-small">新增住所</button>
+              </div>
+            </div>
 
           </form>
         </div>
@@ -124,39 +125,30 @@
               <input type="text" id="personName" required />
             </label>
             <div class="form-row">
-              <label>出生年份（星曆）
-                <input type="number" id="personBirth" min="1" max="9999" />
+              <label>年齡或出生年份
+                <input type="text" id="personAgeOrBirth" placeholder="20 或 380" />
               </label>
               <label>性別
                 <select id="personGender">
                   <option value="">未指定</option>
                   <option value="男">男</option>
                   <option value="女">女</option>
-                  <option value="其他">其他</option>
                 </select>
               </label>
             </div>
             <div class="form-row">
               <label>身分
-                <select id="personRole">
-                  <option value="">未指定</option>
-                  <option value="家主">家主</option>
-                  <option value="嫡長子女">嫡長子女</option>
-                  <option value="嫡支子女">嫡支子女</option>
-                  <option value="庶出子女">庶出子女</option>
-                  <option value="旁系宗親">旁系宗親</option>
-                  <option value="外族聯姻">外族聯姻</option>
-                </select>
+                <select id="personRole"></select>
               </label>
               <label>隸屬家族
                 <select id="personFamily"></select>
               </label>
             </div>
             <div class="form-row">
-              <label>職業／職責
+              <label>職業
                 <select id="personOcc"></select>
               </label>
-              <label>住所／駐地
+              <label>住所
                 <select id="personRes"></select>
               </label>
             </div>
@@ -178,54 +170,51 @@
       </section>
 
       <section class="right-col">
+        <!-- 年份 -->
         <div class="card">
           <h2 class="card-title">時間軸</h2>
           <p>當前世界年份：<span id="timelineYear"></span></p>
-          <p class="hint">推進年份時，若有人到達預期去世年份，將標記為已逝並由輔佐官回報。</p>
           <div class="button-row">
             <button id="yearMinusBtn" class="btn btn-small">-1 年</button>
             <button id="yearPlusBtn" class="btn btn-small">+1 年</button>
-            <button id="yearPlus10Btn" class="btn btn-small">+10 年</button>
-            <button id="yearResetBtn" class="btn btn-small">重設為星曆 387 年</button>
           </div>
         </div>
 
+        <!-- 輔佐官 -->
         <div class="card">
           <h2 class="card-title">輔佐官</h2>
           <div id="advisorLog" class="log">
-            <p>【輔佐官】家主，先建立一個家族與幾位族人，我便能為你繪製整個宗族的輪廓。</p>
+            <p>【輔佐官】家主，請開始建立家族。</p>
           </div>
+
+          <!-- 查詢工具 -->
           <div class="form-row">
             <input type="text" id="advisorSearchName" placeholder="輸入姓名調取人物" />
             <button id="advisorSearchBtn" class="btn btn-small">調取人物</button>
           </div>
+
           <div class="form-row">
             <select id="advisorLocation"></select>
             <button id="advisorLocationBtn" class="btn btn-small">調取地點資料</button>
           </div>
+
           <div class="form-row">
             <input type="number" id="ageMin" placeholder="最小年齡" />
             <input type="number" id="ageMax" placeholder="最大年齡" />
             <button id="advisorAgeBtn" class="btn btn-small">調取年齡段</button>
           </div>
-          <textarea id="advisorCommand" rows="3" placeholder="可輸入指令，例如：
-查人 慕容伊
-查地 北境
-查齡 15-30
-年+10、年份 400
-改家族區域 慕容氏家族 中原
-改家族據點 慕容氏家族 江南府城
-改人物家族 某人 林氏家族 / 無
-加父母 子名 父母名
-加子女 父母名 子名
-改人物死亡年份 某人 420
-壽命 慕容伊"></textarea>
-          <div class="button-row">
-            <button id="advisorCommandBtn" class="btn btn-primary btn-small">送出指令</button>
-            <button id="worldSummaryBtn" class="btn btn-small">天下總覽</button>
-          </div>
+
+          <!-- 指令欄真正修正點 -->
+          <form id="advisorCommandForm">
+            <textarea id="advisorCommand" rows="3" placeholder="可輸入指令：查人 某某、查地 中原、結為連理 A B..."></textarea>
+            <div class="button-row">
+              <button type="submit" class="btn btn-primary btn-small">送出指令</button>
+              <button id="worldSummaryBtn" type="button" class="btn btn-small">天下總覽</button>
+            </div>
+          </form>
         </div>
 
+        <!-- 事件 -->
         <div class="card">
           <h2 class="card-title">事件系統</h2>
           <div class="form-row">
@@ -244,15 +233,16 @@
               <select id="eventRegion"></select>
             </label>
           </div>
-          <p class="hint">觸發事件後會跳出視窗，家主可決定是否執行與如何處置。</p>
           <button id="triggerEventBtn" class="btn btn-primary">觸發事件</button>
         </div>
 
+        <!-- 區域 -->
         <div class="card">
           <h2 class="card-title">世界區域與勢力</h2>
           <div id="regionOverview"></div>
         </div>
 
+        <!-- 詳情 -->
         <div class="card">
           <h2 class="card-title">家族詳情</h2>
           <div id="familyDetail" class="detail">
@@ -270,7 +260,7 @@
     </main>
   </div>
 
-  <!-- 事件確認視窗 -->
+  <!-- 事件視窗（修正版） -->
   <div id="eventModal" class="modal hidden">
     <div class="modal-content">
       <h3>事件確認</h3>
@@ -279,8 +269,8 @@
         <select id="eventDecision"></select>
       </label>
       <div class="button-row right">
-        <button id="eventCancel" class="btn btn-small">取消</button>
-        <button id="eventConfirm" class="btn btn-primary btn-small">執行</button>
+        <button id="cancelEventBtn" class="btn btn-small">取消</button>
+        <button id="resolveEventBtn" class="btn btn-primary btn-small">執行</button>
       </div>
     </div>
   </div>
