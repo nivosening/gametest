@@ -853,42 +853,90 @@ function quickCreateFamily(data) {
 function renderFamilies() {
   const list = $("familyList");
   list.innerHTML = "";
+
+  // ============================
+  // （1）新增：未歸宗族 顯示區塊
+  // ============================
+  const noFamMembers = state.persons.filter(p => !p.familyId);
+  const divNoFam = document.createElement("div");
+  divNoFam.className = "list-item" + (state.selectedFamilyId === "noFamily" ? " active" : "");
+  
+  divNoFam.innerHTML = `
+    <div class="list-main">
+      <div class="list-title">未歸宗族</div>
+      <div class="list-sub">共 ${noFamMembers.length} 人</div>
+    </div>
+    <div class="badge">無隸屬家族</div>
+  `;
+
+  divNoFam.addEventListener("click", () => {
+    state.selectedFamilyId = "noFamily";
+    state.selectedPersonId = null;
+    renderFamilies();
+    renderFamilyDetail();
+    renderPersonDetail();
+    advisorSay("已開啟「未歸宗族」名錄。");
+  });
+
+  list.appendChild(divNoFam);
+
+  // ============================
+  // （2）正常家族列表
+  // ============================
   if (!state.families.length) {
-    list.innerHTML = '<div class="list-item"><div class="list-main"><div class="list-title">尚無家族</div><div class="list-sub">請先建立家族或使用快速建立功能。</div></div></div>';
+    const div = document.createElement("div");
+    div.className = "list-item";
+    div.innerHTML = `
+      <div class="list-main">
+        <div class="list-title">尚無正式家族</div>
+        <div class="list-sub">請先建立家族。</div>
+      </div>`;
+    list.appendChild(div);
     return;
   }
+
   state.families.forEach(f => {
     const members = state.persons.filter(p => p.familyId === f.id);
     const alive = members.filter(p => !p.deceased).length;
     const dead = members.filter(p => p.deceased).length;
+
     const div = document.createElement("div");
     div.className = "list-item" + (state.selectedFamilyId === f.id ? " active" : "");
+
     const main = document.createElement("div");
     main.className = "list-main";
+
     const t = document.createElement("div");
     t.className = "list-title";
     t.textContent = f.name;
+
     const s = document.createElement("div");
     s.className = "list-sub";
-    s.textContent = `${getRegionName(f.regionId) || "區域未定"}｜${f.origin || "出身未明"}｜成員 ${members.length} 人（在世 ${alive}，已逝 ${dead}）`;
+    s.textContent = `${getRegionName(f.regionId) || "區域未定"}｜成員 ${members.length}（在世 ${alive}／已逝 ${dead}）`;
+
     main.appendChild(t);
     main.appendChild(s);
+
     const badge = document.createElement("div");
     badge.className = "badge";
     badge.textContent = f.territory || "據點未定";
+
     div.appendChild(main);
     div.appendChild(badge);
+
     div.addEventListener("click", () => {
       state.selectedFamilyId = f.id;
       state.selectedPersonId = null;
       renderFamilies();
       renderFamilyDetail();
       renderPersonDetail();
-      advisorSay(`已開啟「${f.name}」的族譜。`);
+      advisorSay(`已開啟「${f.name}」族譜。`);
     });
+
     list.appendChild(div);
   });
 }
+
 
 function computeGeneration(id, memo = {}) {
   if (memo[id]) return memo[id];
@@ -913,10 +961,57 @@ function computeGeneration(id, memo = {}) {
 function renderFamilyDetail() {
   const box = $("familyDetail");
   box.innerHTML = "";
-  if (!state.selectedFamilyId) {
-    box.innerHTML = '<p class="hint">請先選擇一個家族。</p>';
+   // ================
+  // 未歸宗族顯示
+  // ================
+  if (state.selectedFamilyId === "noFamily") {
+    const box = $("familyDetail");
+    box.innerHTML = "";
+
+    const title = document.createElement("h2");
+    title.className = "detail-title";
+    title.textContent = "未歸宗族人物";
+    box.appendChild(title);
+
+    const list = state.persons.filter(p => !p.familyId);
+
+    if (!list.length) {
+      box.innerHTML += `<p class="hint">目前沒有未歸宗族的人。</p>`;
+      return;
+    }
+
+    const memBlock = document.createElement("div");
+    memBlock.className = "detail-section";
+    memBlock.innerHTML = `
+      <div class="detail-label">成員（點擊姓名查看人物資訊）</div>
+      <div id="familyMembersList" class="detail-value member-list"></div>
+    `;
+    box.appendChild(memBlock);
+
+    const memberList = $("familyMembersList");
+
+    list.forEach(p => {
+      const div = document.createElement("div");
+      div.className = "member-item" + (state.selectedPersonId === p.id ? " active" : "") + (p.deceased ? " deceased" : "");
+      const age = getAge(p);
+      const ageText = age != null ? age + " 歲" : "年齡未記";
+
+      div.innerHTML = `
+        <span class="member-name">${p.deceased ? "【已逝】" : ""}${p.name}</span>
+        <span class="member-info">${ageText}</span>
+      `;
+      div.addEventListener("click", () => {
+        state.selectedPersonId = p.id;
+        renderPersonDetail();
+        renderFamilyDetail();
+      });
+
+      memberList.appendChild(div);
+    });
+
     return;
   }
+
   const f = state.families.find(x => x.id === state.selectedFamilyId);
   if (!f) {
     box.innerHTML = '<p class="hint">家族資料錯誤。</p>';
@@ -2144,6 +2239,37 @@ function handleAdvisorCommand(cmd) {
     input.value = "";
     return;
   }
+
+    // 查詢未歸宗族
+  if (text === "查未歸宗族") {
+    const list = state.persons.filter(p => !p.familyId);
+
+    if (!list.length) {
+      advisorSay("目前沒有未歸宗族的人物。");
+      input.value = "";
+      return;
+    }
+
+    let msg = `共有 ${list.length} 位族人尚未隸屬任何家族：`;
+    msg += list.map(p => {
+      const age = getAge(p);
+      const deceased = p.deceased ? "【已逝】" : "";
+      return `${p.name}${deceased}（${age != null ? age + '歲' : '年齡未記'}）`;
+    }).join("、") + "。";
+
+    advisorSay(msg);
+
+    // 自動選中第一位
+    const p = list[0];
+    state.selectedPersonId = p.id;
+    state.selectedFamilyId = null;
+    renderFamilies();
+    renderPersonDetail();
+
+    input.value = "";
+    return;
+  }
+
 
   m = text.match(/^改家族據點\s+(\S+)\s+(\S+)$/);
   if (m) {
