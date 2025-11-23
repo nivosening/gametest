@@ -276,5 +276,43 @@
   </div>
 
   <script src="js/game.js"></script>
+
+<!-- Small Parent Selection Dialog -->
+<div id="parentSelectDialog" style="position:fixed; bottom:20px; right:20px; background:white;
+border:1px solid #ccc; padding:15px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.2);
+display:none; z-index:9999;">
+  <div id="parentSelectText" style="margin-bottom:10px;">選擇另一位父母：</div>
+  <div id="parentSelectButtons" style="display:flex; flex-direction:column; gap:6px;"></div>
+  <button onclick="closeParentSelectDialog()">關閉</button>
+</div>
+<!-- === 小型第二父母選擇對話框 === -->
+<div id="parentSelectDialog" 
+     style="
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: white;
+        border: 1px solid #ccc;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        z-index: 99999;
+        display: none;
+        max-width: 260px;
+     ">
+  <div id="parentSelectText" style="margin-bottom: 10px;">
+    選擇第二位父母：
+  </div>
+
+  <div id="parentSelectButtons" 
+       style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px;">
+  </div>
+
+  <button onclick="closeParentSelectDialog()" 
+          style="padding: 6px 10px; border: 1px solid #666; border-radius: 6px;">
+    關閉
+  </button>
+</div>
+
 </body>
 </html>
