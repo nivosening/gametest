@@ -147,6 +147,15 @@ function normalizeRelations() {
   });
 }
 
+
+
+function findPerson(id) {
+    return state.persons.find(p => p.id === Number(id)) || null;
+}
+
+
+
+
 function linkParentChild(parent, child, opts) {
   const o = opts || {};
   if (!parent || !child) return false;
@@ -686,17 +695,24 @@ function addPerson(data) {
   };
 
   if (state.childModeParentId) {
-    const parent = state.persons.find(x => x.id === state.childModeParentId);
-    if (parent) {
-      linkParentChild(parent, p, { ignoreRule: false });
-      if (parent.spouseIds && parent.spouseIds.length) {
-        parent.spouseIds.forEach(sid => {
-          const sp = state.persons.find(x => x.id === sid);
-          if (sp) linkParentChild(sp, p, { ignoreRule: false });
-        });
-      }
-    }
+
+  const parent = state.persons.find(x => x.id === state.childModeParentId);
+
+  if (parent) {
+
+    // 第一位父母連結
+    linkParentChild(parent, p, { ignoreRule: false });
+
+    // 取得可選的第二位父母（配偶）
+    const spouseList = (parent.spouseIds || [])
+      .map(id => state.persons.find(pp => pp.id === id))
+      .filter(Boolean);
+
+    // 立即彈出視窗
+    openParentSelectDialog(p, parent, spouseList);
   }
+}
+
 
   state.persons.push(p);
   state.childModeParentId = null;
@@ -1994,6 +2010,12 @@ function resolveEvent() {
   modal.classList.add("hidden");
 }
 
+// 依照 ID 找人物
+function findPerson(id) {
+  return state.persons.find(p => p.id === Number(id)) || null;
+}
+
+
 // ---------- 輔佐官指令集 ----------
 
 function findPersonsByName(name) {
@@ -2650,3 +2672,70 @@ document.addEventListener("DOMContentLoaded", () => {
     handleAdvisorCommand($("advisorCommand").value);
   });
 
+
+// === 小型第二父母選擇視窗 ===
+
+function openParentSelectDialog(child, parent, spouseList) {
+  const box = document.getElementById("parentSelectDialog");
+  const txt = document.getElementById("parentSelectText");
+  const btns = document.getElementById("parentSelectButtons");
+
+  if (!box) return;
+
+  txt.innerText = `為「${child.name}」選擇另一位父母：`;
+
+  btns.innerHTML = "";
+
+  // 建立配偶按鈕
+  spouseList.forEach(sp => {
+    const b = document.createElement("button");
+    b.innerText = sp.name;
+    b.style.padding = "6px 10px";
+    b.style.border = "1px solid #444";
+    b.style.borderRadius = "6px";
+    b.onclick = () => confirmSecondParent(child.id, parent.id, sp.id);
+    btns.appendChild(b);
+  });
+
+  // 無（不詳）按鈕
+  const none = document.createElement("button");
+  none.innerText = "無（不詳）";
+  none.style.padding = "6px 10px";
+  none.style.border = "1px solid #444";
+  none.style.borderRadius = "6px";
+  none.onclick = () => confirmSecondParent(child.id, parent.id, null);
+  btns.appendChild(none);
+
+  box.style.display = "block";
+}
+
+function closeParentSelectDialog() {
+  const box = document.getElementById("parentSelectDialog");
+  if (box) box.style.display = "none";
+}
+
+function confirmSecondParent(childId, parentId, secondId) {
+  const child = findPerson(childId);
+  const p1 = findPerson(parentId);
+
+  if (!child || !p1) return;
+
+  if (secondId !== null) {
+    const sp = findPerson(secondId);
+    if (sp) {
+      if (!child.parentIds.includes(sp.id)) child.parentIds.push(sp.id);
+      if (!sp.childIds.includes(child.id)) sp.childIds.push(child.id);
+
+      advisorSay(`已為「${child.name}」設定父母：${p1.name} 與 ${sp.name}`);
+    }
+  } else {
+    advisorSay(`已為「${child.name}」設定單一父母（${p1.name}）`);
+  }
+
+  closeParentSelectDialog();
+  normalizeRelations();
+  saveState();
+  renderFamilies();
+  renderFamilyDetail();
+  renderPersonDetail();
+}
