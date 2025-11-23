@@ -694,6 +694,29 @@ function addPerson(data) {
     deceased: false
   };
 
+  // === 自動生成預期壽命（自然壽命模型） ===
+function generateRandomLifespan() {
+  const r = Math.random();
+
+  if (r < 0.05) return Math.floor(30 + Math.random() * 20);  // 30–50 夭折/短壽
+  if (r < 0.85) return Math.floor(55 + Math.random() * 30);  // 55–85 常見壽命
+  return Math.floor(86 + Math.random() * 20);                 // 86–105 高壽
+}
+
+// 指定隨機壽命
+p.lifespan = generateRandomLifespan();
+
+// 若已知出生年，則計算死亡年份
+if (p.birthYear && p.lifespan) {
+  p.deathYear = p.birthYear + p.lifespan;
+
+  // 若已過世（比遊戲年份還早），標記已逝
+  if (p.deathYear <= state.gameYear) {
+    p.deceased = true;
+  }
+}
+
+
   if (state.childModeParentId) {
 
   const parent = state.persons.find(x => x.id === state.childModeParentId);
