@@ -40,7 +40,7 @@ const GIVEN_NAME_PARTS = [
   "琦","舞","綺","雲","澈","澄"
 ];
 
-const SPOUSE_TYPES = ["夫", "妻", "平妻", "妾", "繼室", "入贅"];
+const SPOUSE_TYPES = ["平妻", "妾", "繼室", "入贅", "訂婚"];
 
 const state = {
   regions: [...DEFAULT_REGIONS],
@@ -1198,10 +1198,30 @@ function renderFamilyDetail() {
       const gen = computeGeneration(p.id);
       const deceasedText = p.deceased ? "【已逝】" : "";
       
-      div.innerHTML = `
-        <span class="member-name">${deceasedText}${p.name}</span>
-        <span class="member-info">${p.role || "未標註"}｜第 ${gen} 代｜${ageText}</span>
-      `;
+      // 性別
+const genderText = p.gender || "未記";
+
+// 已婚狀態
+const marriedText = p.spouseIds.length ? "已婚" : "未婚";
+
+// 子女總數、兒子數、女兒數
+const childrenList = p.childIds.map(id => state.persons.find(pp => pp.id === id)).filter(Boolean);
+const sons = childrenList.filter(c => c.gender === "男").length;
+const daughters = childrenList.filter(c => c.gender === "女").length;
+const totalChildren = sons + daughters;
+
+div.innerHTML = `
+  <span class="member-name">${deceasedText}${p.name}</span>
+  <span class="member-info">
+    ${p.role || "未標註"}｜
+    第 ${gen} 代｜
+    ${ageText}｜
+    ${genderText}｜
+    ${marriedText}｜
+    子女 ${totalChildren}（子：${sons}｜女：${daughters}）
+  </span>
+`;
+
       div.addEventListener("click", () => {
         state.selectedPersonId = p.id;
         state.selectedFamilyId = f.id;
@@ -1295,10 +1315,15 @@ function renderPersonDetail() {
     const ag = getAge(sp);
     const genderText = sp.gender || "性別未記";
     let relType = "";
-    const sr = p.spouseRelations.find(r => r.id === sp.id);
-    if (sr) relType = `（${sr.type}）`;
-    let inner = `${sp.name}${relType}`;
-    if (ag != null) inner += `，${ag}歲`;
+const sr = p.spouseRelations.find(r => r.id === sp.id);
+if (sr) {
+  relType = `（${sr.type}`;
+  if (sr.year != null) relType += `｜星曆 ${sr.year} 年結婚`;
+  relType += `）`;
+}
+let inner = `${sp.name}${relType}`;
+
+    if (ag != null) inner += `，${ag} 歲`;
     if (sp.familyId) {
       const spFam = state.families.find(x => x.id === sp.familyId);
       if (spFam) inner += `，${spFam.name}氏`;
@@ -1308,22 +1333,45 @@ function renderPersonDetail() {
   }).join("； ") : "尚無婚配記錄。";
 
   const paText = parents.length ? parents.map(pa => {
-    const ag = getAge(pa);
-    const deceasedText = pa.deceased ? "【已逝】" : "";
-    let inner = `${pa.name}${deceasedText}`;
-    if (pa.gender) inner = `${pa.gender === "男" ? "父" : "母"}：${inner}`;
-    if (ag != null) inner += `，${ag}歲`;
-    return inner;
-  }).join("； ") : "生父／母未記。";
+  const ag = getAge(pa);
+  const deceasedText = pa.deceased ? "【已逝】" : "";
+  
+  let label = pa.gender === "男" ? "父" : (pa.gender === "女" ? "母" : "父／母");
+  let inner = `${label}：${pa.name}${deceasedText}`;
+
+  // 父母目前的年齡
+  if (ag != null) inner += `，${ag} 歲`;
+
+  // ★ 新增：生育時年齡（你想要的功能）
+  if (pa.birthYear != null && p.birthYear != null) {
+    const ageAtBirth = p.birthYear - pa.birthYear;
+    if (!isNaN(ageAtBirth)) {
+      inner += `（於 ${ageAtBirth} 歲時生育）`;
+    }
+  }
+
+  return inner;
+}).join("； ") : "生父／母未記。";
+
 
   const chText = children.length ? children.map(ch => {
-    const ag = getAge(ch);
-    const deceasedText = ch.deceased ? "【已逝】" : "";
-    let inner = `${ch.name}${deceasedText}`;
-    if (ch.gender) inner = `${ch.gender === "男" ? "子" : "女"}：${inner}`;
-    if (ag != null) inner += `，${ag}歲`;
-    return inner;
-  }).join("； ") : "尚無子女記錄。";
+  const chAge = getAge(ch);
+  const deceasedText = ch.deceased ? "【已逝】" : "";
+  let inner = `${ch.gender === "男" ? "子" : "女"}：${ch.name}${deceasedText}`;
+
+  if (chAge != null) inner += `，${chAge} 歲`;
+
+  // 計算生育時年齡
+  if (p.birthYear != null && ch.birthYear != null) {
+    const ageAtBirth = ch.birthYear - p.birthYear;
+    if (!isNaN(ageAtBirth)) {
+      inner += `（ ${ageAtBirth} 歲時生育）`;
+    }
+  }
+
+  return inner;
+}).join("； ") : "尚無子女記錄。";
+
 
   rel.innerHTML = `
     <div class="detail-label">配偶（婚配）</div>
@@ -1575,18 +1623,43 @@ function renderPersonDetail() {
     if (!spId) { advisorSay("請選擇一位配偶。"); return; }
     if (!relType) { advisorSay("請選擇一種關係類型。"); return; }
     const sp = state.persons.find(x => x.id === spId);
-    if (!sp) return;
+if (!sp) return;
 
-    if (!p.spouseIds.includes(spId)) p.spouseIds.push(spId);
-    if (!sp.spouseIds.includes(p.id)) sp.spouseIds.push(p.id);
+// 取得結婚年份
+let yearInput = prompt(`請輸入「${p.name}」與「${sp.name}」的結婚年份（可留空）`, state.gameYear);
+let marryYear = null;
+if (yearInput && !isNaN(Number(yearInput))) {
+  marryYear = Number(yearInput);
+}
 
-    // 更新關係類型，避免重複
-    let pRel = p.spouseRelations.find(r => r.id === spId);
-    if (!pRel) { pRel = { id: spId, type: relType }; p.spouseRelations.push(pRel); }
-    else pRel.type = relType;
-    let spRel = sp.spouseRelations.find(r => r.id === p.id);
-    if (!spRel) { spRel = { id: p.id, type: relType }; sp.spouseRelations.push(spRel); }
-    else spRel.type = relType;
+// 建立 spouseIds
+if (!p.spouseIds.includes(spId)) p.spouseIds.push(spId);
+if (!sp.spouseIds.includes(p.id)) sp.spouseIds.push(p.id);
+
+// 更新 spouseRelations
+let pRel = p.spouseRelations.find(r => r.id === spId);
+if (!pRel) {
+  pRel = { id: spId, type: relType, year: marryYear };
+  p.spouseRelations.push(pRel);
+} else {
+  pRel.type = relType;
+  pRel.year = marryYear;
+}
+
+let spRel = sp.spouseRelations.find(r => r.id === p.id);
+if (!spRel) {
+  spRel = { id: p.id, type: relType, year: marryYear };
+  sp.spouseRelations.push(spRel);
+} else {
+  spRel.type = relType;
+  spRel.year = marryYear;
+}
+
+saveState();
+renderPersonDetail();
+renderFamilyDetail();
+advisorSay(`已為「${p.name}」與「${sp.name}」訂下婚約（${relType}），結婚年份：${marryYear ?? "未記載"}。`);
+
 
     saveState();
     renderPersonDetail();
@@ -1860,6 +1933,16 @@ function loadStateFromData(data) {
 
   normalizeRelations();
   saveState(); // 儲存到 localStorage
+
+
+  // === 修復 spouseRelations 結構，補上結婚年份 year ===
+state.persons.forEach(p => {
+  p.spouseRelations = p.spouseRelations.map(r => {
+    if (r.year === undefined) r.year = null;
+    return r;
+  });
+});
+
 }
 
 
