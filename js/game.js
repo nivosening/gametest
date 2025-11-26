@@ -736,6 +736,39 @@ if (p.birthYear && p.lifespan) {
   }
 }
 
+// ===== 父母建立模式 =====
+if (state.parentModeChildId) {
+  const child = findPerson(state.parentModeChildId);
+
+  if (child) {
+    // 若建立的人性別還沒設定，補上按鈕選的性別
+    if (!p.gender && state.parentModeGender) {
+      p.gender = state.parentModeGender;
+    }
+
+    // 設定父母
+    if (!child.parentIds.includes(p.id)) child.parentIds.push(p.id);
+
+    // 設定子女
+    if (!p.childIds.includes(child.id)) p.childIds.push(child.id);
+
+    advisorSay(
+      `已為「${child.name}」新增${state.parentModeGender === "男" ? "父親" : "母親"}「${p.name}」。`
+    );
+  }
+
+  // 清除模式（保持 UI 乾淨）
+  state.parentModeChildId = null;
+  state.parentModeGender = null;
+
+  const btn = $("cancelChildModeBtn");
+  btn.style.display = "none";
+  btn.textContent = "取消以此人為父母建立子女";
+}
+
+
+
+
 
   state.persons.push(p);
   state.childModeParentId = null;
@@ -764,6 +797,20 @@ function enterChildMode(personId) {
   const p = state.persons.find(x => x.id === personId);
   if (p) advisorSay(`已以「${p.name}」為父母建立子女。`);
 }
+
+function enterParentMode(childId, gender) {
+  state.parentModeChildId = childId;
+  state.parentModeGender = gender;
+
+  const cancelBtn = $("cancelChildModeBtn");
+  cancelBtn.style.display = "inline-block";
+  cancelBtn.textContent = "取消以此人為子女建立父母";
+
+  advisorSay(
+    `已啟用建立父母模式。新增的人物將成為「${findPerson(childId).name}」的${gender === "男" ? "父親" : "母親"}。`
+  );
+}
+
 
 function generateGivenName() {
   const a = pickRandom(GIVEN_NAME_PARTS) || "";
@@ -889,13 +936,43 @@ function quickCreateFamily(data) {
 }
 
 // ---------- 列表與詳情 ----------
+// ====== 中文姓氏筆畫表（可自行擴增） ======
+const STROKE_TABLE = {
+  "一":1, "丁":2, "七":2, "乃":2, "九":2,
+  "了":2, "人":2, "入":2,
+  "八":2, "于":3, "三":3,
+  "王":4, "井":4, "互":4, "五":4,
+  "田":5, "由":5, "史":5, "白":5, "石":5,
+  "朱":6, "任":6,
+  "安":6, "宋":7, "何":7, "余":7,
+  "林":8, "周":8, "宗":8,
+  "胡":9, "洪":9,
+  "高":10, "康":11,
+  "張":11, "許":11,
+  "黃":12,
+  "陳":16, "鄭":19, "顏":18, "龔":24
+};
+
+// 取得姓氏筆畫
+function getStroke(ch) {
+  return STROKE_TABLE[ch] ?? 99;
+}
+
 function renderFamilies() {
   const list = $("familyList");
   list.innerHTML = "";
 
-  // ============================
-  // （1）新增：未歸宗族 顯示區塊
-  // ============================
+  // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+  // ★ 搜尋欄位（若存在則讀取）
+  // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+  const keyword = $("familySearch")?.value.trim() || "";
+
+if (keyword) {
+  fams = fams.filter(f => f.name.includes(keyword));
+}
+  // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+  // ★ 未歸宗族區塊
+  // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
   const noFamMembers = state.persons.filter(p => !p.familyId);
   const divNoFam = document.createElement("div");
   divNoFam.className = "list-item" + (state.selectedFamilyId === "noFamily" ? " active" : "");
@@ -919,9 +996,9 @@ function renderFamilies() {
 
   list.appendChild(divNoFam);
 
-  // ============================
-  // （2）正常家族列表
-  // ============================
+  // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+  // ★ 若沒有家族
+  // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
   if (!state.families.length) {
     const div = document.createElement("div");
     div.className = "list-item";
@@ -934,46 +1011,119 @@ function renderFamilies() {
     return;
   }
 
-  state.families.forEach(f => {
-    const members = state.persons.filter(p => p.familyId === f.id);
-    const alive = members.filter(p => !p.deceased).length;
-    const dead = members.filter(p => p.deceased).length;
+  // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+  // ★ 家族資料（加入搜尋 + 筆畫排序）
+  // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+  let fams = [...state.families];
 
-    const div = document.createElement("div");
-    div.className = "list-item" + (state.selectedFamilyId === f.id ? " active" : "");
+  // 搜尋
+  if (keyword) {
+    fams = fams.filter(f => f.name.includes(keyword));
+  }
 
-    const main = document.createElement("div");
-    main.className = "list-main";
-
-    const t = document.createElement("div");
-    t.className = "list-title";
-    t.textContent = f.name;
-
-    const s = document.createElement("div");
-    s.className = "list-sub";
-    s.textContent = `${getRegionName(f.regionId) || "區域未定"}｜成員 ${members.length}（在世 ${alive}／已逝 ${dead}）`;
-
-    main.appendChild(t);
-    main.appendChild(s);
-
-    const badge = document.createElement("div");
-    badge.className = "badge";
-    badge.textContent = f.territory || "據點未定";
-
-    div.appendChild(main);
-    div.appendChild(badge);
-
-    div.addEventListener("click", () => {
-      state.selectedFamilyId = f.id;
-      state.selectedPersonId = null;
-      renderFamilies();
-      renderFamilyDetail();
-      renderPersonDetail();
-      advisorSay(`已開啟「${f.name}」族譜。`);
-    });
-
-    list.appendChild(div);
+  // 筆畫排序（先筆畫、再字典順）
+  fams.sort((a, b) => {
+    const sa = getStroke(a.name[0]);
+    const sb = getStroke(b.name[0]);
+    if (sa !== sb) return sa - sb;
+    return a.name.localeCompare(b.name, "zh-Hant");
   });
+
+  // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+  // ★ 依筆畫分組（折疊群組）
+  // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+  const groups = {};
+  fams.forEach(f => {
+    const s = getStroke(f.name[0]);
+    if (!groups[s]) groups[s] = [];
+    groups[s].push(f);
+  });
+
+  Object.keys(groups)
+    .sort((a, b) => Number(a) - Number(b))
+    .forEach(stroke => {
+
+      const famList = groups[stroke];
+
+      // 群組標題（可折疊）
+      const title = document.createElement("div");
+
+      title.className = "list-item";
+      title.style.fontWeight = "bold";
+      title.style.cursor = "pointer";
+      title.innerHTML = `
+        <div class="list-main">
+          <div class="list-title">【${stroke} 畫】 (${famList.length} 家族)</div>
+        </div>
+      `;
+
+      // 群組內容
+      const groupBox = document.createElement("div");
+     
+      // ★ 預設為「折疊」
+      groupBox.style.display = "none";
+
+      groupBox.id = "strokeGroup-" + stroke;
+      groupBox.style.marginLeft = "10px";
+      groupBox.style.marginBottom = "6px";
+
+      if (keyword) {
+    groupBox.style.display = "block";
+}
+
+      // 點擊折疊
+      title.addEventListener("click", () => {
+        groupBox.style.display = groupBox.style.display === "none" ? "block" : "none";
+      });
+
+      list.appendChild(title);
+
+      // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+      // ★ 群組內的家族項目
+      // ＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+      famList.forEach(f => {
+        const members = state.persons.filter(p => p.familyId === f.id);
+        const alive = members.filter(p => !p.deceased).length;
+        const dead = members.filter(p => p.deceased).length;
+
+        const div = document.createElement("div");
+        div.className = "list-item" + (state.selectedFamilyId === f.id ? " active" : "");
+
+        const main = document.createElement("div");
+        main.className = "list-main";
+
+        const t = document.createElement("div");
+        t.className = "list-title";
+        t.textContent = f.name;
+
+        const s = document.createElement("div");
+        s.className = "list-sub";
+        s.textContent = `${getRegionName(f.regionId) || "區域未定"}｜成員 ${members.length}（在世 ${alive}／已逝 ${dead}）`;
+
+        main.appendChild(t);
+        main.appendChild(s);
+
+        const badge = document.createElement("div");
+        badge.className = "badge";
+        badge.textContent = f.territory || "據點未定";
+
+        div.appendChild(main);
+        div.appendChild(badge);
+
+        div.addEventListener("click", () => {
+          state.selectedFamilyId = f.id;
+          state.selectedPersonId = null;
+          renderFamilies();
+          renderFamilyDetail();
+          renderPersonDetail();
+          advisorSay(`已開啟「${f.name}」族譜。`);
+        });
+
+        groupBox.appendChild(div);
+      });
+
+      list.appendChild(groupBox);
+    });
 }
 
 
@@ -1306,7 +1456,17 @@ function renderPersonDetail() {
 
   const spouses = (p.spouseIds || []).map(id => state.persons.find(x => x.id === id)).filter(Boolean);
   const parents = (p.parentIds || []).map(id => state.persons.find(x => x.id === id)).filter(Boolean);
-  const children = (p.childIds || []).map(id => state.persons.find(x => x.id === id)).filter(Boolean);
+
+  const children = (p.childIds || [])
+    .map(id => state.persons.find(x => x.id === id))
+    .filter(Boolean)
+    
+    .sort((a, b) => {
+        const ageA = getAge(a) ?? -999;
+        const ageB = getAge(b) ?? -999;
+        return ageB - ageA;
+    });
+
 
   const rel = document.createElement("div");
   rel.className = "detail-section";
@@ -1386,6 +1546,33 @@ let inner = `${sp.name}${relType}`;
   // 動作區塊
   const actions = document.createElement("div");
   actions.className = "detail-section action-group";
+
+// --- 修改出生年份 ---
+const editBirthBtn = document.createElement("button");
+editBirthBtn.className = "btn btn-small";
+editBirthBtn.textContent = "修改出生年份";
+editBirthBtn.addEventListener("click", () => {
+  const input = prompt(`請輸入「${p.name}」的新出生年份：`, p.birthYear ?? "");
+  if (input === null) return;
+  const y = Number(input);
+  if (isNaN(y)) {
+    alert("請輸入正確的數字年份。");
+    return;
+  }
+
+  p.birthYear = y;
+
+  // 若有死亡年份，自動檢查
+  if (p.deathYear && p.deathYear <= state.gameYear) p.deceased = true;
+  else p.deceased = false;
+
+  saveState();
+  renderPersonDetail();
+  renderFamilyDetail();
+  advisorSay(`已將「${p.name}」的出生年份更新為星曆 ${y} 年。`);
+});
+actions.appendChild(editBirthBtn);
+
 
   // --- 修改姓名按鈕
   const renameBtn = document.createElement("button");
@@ -1467,7 +1654,7 @@ let inner = `${sp.name}${relType}`;
     
     actions.parentNode.insertBefore(promptBox, actions);
   });
-  
+
   // --- 解除婚約按鈕 (新增功能)
   const divorceBtn = document.createElement("button");
   divorceBtn.className = "btn btn-small btn-warning";
@@ -1529,6 +1716,81 @@ let inner = `${sp.name}${relType}`;
 
       actions.parentNode.insertBefore(promptBox, actions);
   });
+
+// --- 修改父母 ---
+const editParentsBtn = document.createElement("button");
+editParentsBtn.className = "btn btn-small";
+editParentsBtn.textContent = "修改父母";
+editParentsBtn.addEventListener("click", () => {
+
+  const list = state.persons
+    .filter(pp => pp.id !== p.id)
+    .map(pp => `[${pp.id}] ${pp.name}（${pp.gender || "性別未記"}）`)
+    .join("\n");
+
+  const input = prompt(
+    `請輸入新的父母 ID（可用逗號分隔，可留空）\n\n可選清單：\n${list}`,
+    p.parentIds.join(",")
+  );
+
+  if (input === null) return;
+
+  const ids = input
+    .split(",")
+    .map(x => Number(x.trim()))
+    .filter(x => !isNaN(x));
+
+  // 清掉舊父母的 childIds
+  p.parentIds.forEach(pidOld => {
+    const oldP = findPerson(pidOld);
+    if (oldP) {
+      oldP.childIds = oldP.childIds.filter(cid => cid !== p.id);
+    }
+  });
+
+  p.parentIds = [];
+
+  ids.forEach(pid => {
+    const pa = findPerson(pid);
+    if (pa) {
+      p.parentIds.push(pa.id);
+      if (!pa.childIds.includes(p.id)) pa.childIds.push(p.id);
+    }
+  });
+
+  normalizeRelations();
+  saveState();
+  renderPersonDetail();
+  renderFamilyDetail();
+
+  advisorSay(`已更新「${p.name}」的父母資料。`);
+});
+actions.appendChild(editParentsBtn);
+
+
+// --- 為其增加父母
+const fatherBtn = document.createElement("button");
+fatherBtn.className = "btn btn-small";
+fatherBtn.textContent = "為其添加父親";
+fatherBtn.addEventListener("click", () => {
+  enterParentMode(p.id, "男");
+  window.location.hash = "addPerson";
+});
+
+actions.appendChild(fatherBtn);
+
+const motherBtn = document.createElement("button");
+motherBtn.className = "btn btn-small";
+motherBtn.textContent = "為其添加母親";
+motherBtn.addEventListener("click", () => {
+  enterParentMode(p.id, "女");
+  window.location.hash = "addPerson";
+});
+
+actions.appendChild(motherBtn);
+
+
+
   
   // --- 其他原有按鈕
 
@@ -2715,10 +2977,18 @@ document.addEventListener("DOMContentLoaded", () => {
     $("personForm").reset();
   });
 
-  $("cancelChildModeBtn").addEventListener("click", () => {
-    exitChildModeUI();
-    advisorSay("已取消以特定人物為父母建立子女。");
-  });
+ $("cancelChildModeBtn").addEventListener("click", () => {
+    state.childModeParentId = null;
+    state.parentModeChildId = null;
+    state.parentModeGender = null;
+
+    const btn = $("cancelChildModeBtn");
+    btn.style.display = "none";
+    btn.textContent = "取消以此人為父母建立子女";
+
+    advisorSay("已取消建立子女或父母模式。");
+});
+
 
   $("yearMinusBtn").addEventListener("click", () => setGameYear(state.gameYear - 1));
   $("yearPlusBtn").addEventListener("click", () => setGameYear(state.gameYear + 1));
