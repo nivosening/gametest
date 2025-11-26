@@ -163,9 +163,18 @@
           </form>
         </div>
 
-        <div class="card">
-          <h2 class="card-title">家族列表</h2>
-          <div id="familyList" class="list"></div>
+<div class="card card-list">
+  <h2 class="card-title">家族列表</h2>
+  
+ <input id="familySearch" 
+       class="selector small-select" 
+       placeholder="搜尋家族名稱..." 
+       style="margin-bottom:10px; width:100%;" 
+       oninput="renderFamilies()">
+
+
+  <div id="familyList">
+    </div>
         </div>
       </section>
 
@@ -254,6 +263,21 @@
           <h2 class="card-title">人物詳情</h2>
           <div id="personDetail" class="detail">
             <p class="hint">請從家族詳情中的成員列表點選一人。</p>
+
+<div id="personEditActionBox" class="detail-section" style="margin-top: 10px;">
+    <button id="editPersonBtn" class="btn btn-secondary" style="display:none;">編輯此人物</button>
+</div>
+
+<div id="personEditForm" class="detail-section hidden">
+    </div>
+
+<div id="addSpouseBox" class="detail-section">
+    </div>
+
+<div id="personContent">
+    </div>
+    
+</div>
           </div>
         </div>
       </section>
