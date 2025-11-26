@@ -294,3 +294,8 @@ textarea:focus {
 .option-edit:hover {
   text-decoration: underline;
 }
+
+.hidden {
+  display: none !important;
+}
+
